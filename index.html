@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>موسوعة الكنز التعليمي - دراسات اجتماعية</title>
     
+    <!-- أيقونة التطبيق للموبايل والمتصفح -->
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-512x512.png">
+    <link rel="apple-touch-icon" href="icon-512x512.png">
+
     <!-- React & ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -665,6 +669,7 @@
                     return (
                         <div className="h-[100dvh] w-full flex items-center justify-center p-4 md:p-6 overflow-y-auto custom-scrollbar relative bg-[#f8fafc] watermark-container">
                             <div className="w-full max-w-2xl flex flex-col items-center gap-4 sm:gap-5 py-6 z-10 my-auto">
+                                
                                 <i className="fas fa-graduation-cap text-6xl sm:text-7xl md:text-8xl text-gold drop-shadow-sm mb-2"></i>
                                 <div className="flex flex-row items-center justify-center gap-3 sm:gap-4 mb-2">
                                     <span className="text-primary font-black text-6xl sm:text-7xl md:text-8xl tracking-tighter">موسوعة</span>
@@ -1097,7 +1102,7 @@
                             </div>
                             
                             <div className="flex-1 overflow-y-auto p-4 z-10 flex flex-col md:flex-row gap-6">
-                                <div className="w-full md:w-64 bg-white rounded-2xl shadow-md p-3 flex flex-row md:flex-col overflow-x-auto gap-2">
+                                <div className="w-full md:w-64 shrink-0 bg-white rounded-2xl shadow-md p-3 flex flex-row md:flex-col overflow-x-auto custom-scrollbar gap-2">
                                     <button onClick={() => setAdminActiveTab('results')} className={`px-4 py-3 rounded-xl font-bold text-sm whitespace-nowrap text-right transition-colors ${adminActiveTab==='results'?'bg-primary text-white':'text-gray-600 hover:bg-gray-100'}`}>النتائج (أ - ي)</button>
                                     <button onClick={() => setAdminActiveTab('requests')} className={`px-4 py-3 rounded-xl font-bold text-sm whitespace-nowrap text-right relative transition-colors ${adminActiveTab==='requests'?'bg-primary text-white':'text-gray-600 hover:bg-gray-100'}`}>الطلبات {adminPendingReqs.length>0&&<span className="absolute top-2 left-2 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">{adminPendingReqs.length}</span>}</button>
                                     <button onClick={() => setAdminActiveTab('search')} className={`px-4 py-3 rounded-xl font-bold text-sm whitespace-nowrap text-right transition-colors ${adminActiveTab==='search'?'bg-primary text-white':'text-gray-600 hover:bg-gray-100'}`}>الاشتراكات</button>
