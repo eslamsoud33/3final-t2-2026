@@ -84,7 +84,7 @@
             return cleaned;
         };
 
-        // تعديل 1: إزالة طول المتصفح من البصمة لضمان ثباتها حتى لو تم الفتح من الواتساب
+        // دالة البصمة تعتمد على عتاد الهاتف فقط كما هو مطلوب تماماً لكي لا يحظر الطالب على نفس الهاتف
         const generateDeviceFingerprint = () => {
             const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
             ctx.textBaseline = "top"; ctx.font = "14px 'Arial'"; ctx.textBaseline = "alphabetic";
@@ -94,6 +94,7 @@
             const b64 = canvas.toDataURL().replace("data:image/png;base64,","");
             const bin = atob(b64);
             const crc32 = function(r){for(var a,o=[],c=0;c<256;c++){a=c;for(var f=0;f<8;f++)a=1&a?3988292384^a>>>1:a>>>1;o[c]=a}for(var n=-1,t=0;t<r.length;t++)n=n>>>8^o[255&(n^r.charCodeAt(t))];return(-1^n)>>>0};
+            
             return crc32(bin).toString(16);
         };
 
@@ -765,18 +766,23 @@
                                         <h2 className="text-2xl font-black text-primary mb-2">تسجيل طالب جديد</h2>
                                         <input type="text" placeholder="اسم الطالب رباعي" className="w-full text-center border-2 border-gray-200 focus:border-primary outline-none py-3 px-4 rounded-xl mb-4 text-sm font-bold" value={registerName} onChange={(e) => setRegisterName(e.target.value)} />
                                         
+                                        <div className="bg-blue-50 border border-blue-100 p-2 rounded-xl mb-3 flex justify-center items-center gap-2">
+                                            <span className="text-gray-700 font-bold text-sm">قيمة الاشتراك:</span>
+                                            <span className="text-secondary font-black text-lg">{platformFee} ج.م</span>
+                                        </div>
+
                                         <div className="border-2 border-dashed border-gray-300 bg-gray-50 p-3 rounded-xl mb-4">
-                                            <span className="text-gray-800 font-bold">للسداد إلى رقم:</span><br/>
+                                            <span className="text-gray-800 font-bold">يتم تحويل الاشتراك إلى رقم:</span><br/>
                                             <span className="text-primary font-black text-xl" dir="ltr">01228466613</span>
                                         </div>
 
-                                        <p className="text-sm font-bold text-gray-500 mb-2">اختر طريقة السداد:</p>
+                                        <p className="text-sm font-bold text-gray-500 mb-2">أخبرنا بطريقة السداد:</p>
                                         <div className="flex gap-2 mb-4">
                                             <button onClick={() => setRegisterNameMethod('فودافون كاش')} className={`flex-1 p-3 rounded-xl border-2 font-black transition-all ${registerMethod === 'فودافون كاش' ? 'bg-red-50 border-red-500 text-red-600' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>فودافون كاش</button>
                                             <button onClick={() => setRegisterNameMethod('إنستاباي')} className={`flex-1 p-3 rounded-xl border-2 font-black transition-all ${registerMethod === 'إنستاباي' ? 'bg-purple-50 border-purple-500 text-purple-600' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>إنستاباي</button>
                                         </div>
 
-                                        <p className="text-sm font-bold text-secondary mb-4">ثم انتظار رد الإدارة للتفعيل.</p>
+                                        <p className="text-sm font-black text-red-600 mb-4">قم بإرفاق وصل السداد</p>
 
                                         <div className="flex flex-col gap-3">
                                             <button onClick={() => { handleRegisterSubmit(); setShowRegisterModal(false); }} className="w-full bg-secondary text-white font-black text-lg py-3 rounded-xl shadow-md hover:bg-green-700 transition-colors flex justify-center items-center gap-2">
@@ -1137,7 +1143,7 @@
                                                 {Object.entries(studentsList).map(([phone, arr]) => (Array.isArray(arr)?arr:[arr]).map((st, i) => {
                                                     if (searchQuery && !st.name.includes(searchQuery) && !phone.includes(searchQuery)) return null;
                                                     if (st.isPaid || !st.missingMonths || st.missingMonths.length===0) return null;
-                                                    return <div key={`${phone}-${i}`} className="bg-red-50 border border-red-100 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-center gap-4"><div><div className="font-black text-lg text-red-800">{st.name}</div><div className="font-bold text-red-400" dir="ltr">{phone}</div></div><div className="flex flex-wrap gap-2 justify-center">{st.missingMonths.map((m, mIdx)=><button key={mIdx} onClick={()=>handleActivateMonth(phone, st.name, m)} className="bg-white border-2 border-red-500 text-red-600 font-bold px-3 py-1 rounded-lg text-sm hover:bg-red-500 hover:text-white transition-colors">تفعيل {m}</button>)}</div></div>;
+                                                    return <div key={`${phone}-${i}`} className="bg-red-50 border border-red-100 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-center gap-4"><div><div className="font-black text-lg text-red-800">{st.name}</div><div className="font-bold text-red-400" dir="ltr">{phone}</div></div><div className="flex flex-wrap gap-2 justify-center">{st.missingMonths.map((m, mIdx)=><button key={mIdx} onClick={()=>handleActivateMonth(phone, st.name, m)} className="bg-white border-2 border-red-500 text-red-600 font-bold px-3 py-1 rounded-lg text-sm hover:bg-red-500 hover:text-white transition-colors">تفعيل {m}</button>)}<button onClick={() => { const msg = `${st.name} : لقد تم تفعيلكم في منصة موسوعة الكنز\nتمنياتي بالتوفيق\n*أ/إسلام سعود*`; window.open(`https://wa.me/20${formatPhoneStr(phone).substring(1)}?text=${encodeURIComponent(msg)}`, '_blank'); }} className="bg-green-500 text-white font-bold px-3 py-1 rounded-lg text-sm shadow hover:bg-green-600 transition-colors flex items-center gap-1"><i className="fab fa-whatsapp"></i> رسالة</button></div></div>;
                                                 }))}
                                             </div>
                                         </div>
