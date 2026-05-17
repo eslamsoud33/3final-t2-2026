@@ -29,7 +29,7 @@
     </script>
 
     <style>
-        body { font-family: 'Cairo', sans-serif; margin: 0; padding: 0; background-color: #fcfcfc; user-select: none; -webkit-user-select: none; overflow: hidden; height: 100vh; }
+        body { font-family: 'Cairo', sans-serif; margin: 0; padding: 0; background-color: #fcfcfc; user-select: none; -webkit-user-select: none; overflow: hidden; height: 100vh; height: 100dvh; }
         .watermark-container { position: relative; }
         .watermark-container::before {
             content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
@@ -630,7 +630,7 @@
             const renderScreen = () => {
                 if (screen === 'returning_welcome') {
                     return (
-                        <div className="h-screen w-full flex items-center justify-center p-4 bg-gray-50">
+                        <div className="h-[100dvh] w-full flex items-center justify-center p-4 bg-gray-50">
                             <div className="bg-white p-8 rounded-3xl shadow-2xl text-center max-w-md w-full border-t-8 border-secondary animate-fade-in relative overflow-hidden">
                                 <i className="fas fa-hand-sparkles text-6xl text-secondary mb-6 block relative z-10"></i>
                                 <h2 className="text-3xl font-black text-primary mb-4 relative z-10">مرحباً يا بطل {studentName.split(' ')[0]}!</h2>
@@ -652,7 +652,7 @@
                     let liveStudents = studentsList[livePhone]; if (liveStudents && !Array.isArray(liveStudents)) liveStudents = [liveStudents];
 
                     return (
-                        <div className="h-screen w-full flex items-center justify-center p-4 md:p-6 overflow-y-auto custom-scrollbar relative bg-[#f8fafc] watermark-container">
+                        <div className="h-[100dvh] w-full flex items-center justify-center p-4 md:p-6 overflow-y-auto custom-scrollbar relative bg-[#f8fafc] watermark-container">
                             <div className="w-full max-w-2xl flex flex-col items-center gap-4 sm:gap-5 py-6 z-10 my-auto">
                                 <i className="fas fa-graduation-cap text-6xl sm:text-7xl md:text-8xl text-gold drop-shadow-sm mb-2"></i>
                                 <div className="flex flex-row items-center justify-center gap-3 sm:gap-4 mb-2">
@@ -792,10 +792,10 @@
                 }
 
                 if (screen === 'index') {
-                    // تم تقليل الترحيل للموبايل (pt-6) مع إضافة التجاوب الاستجابي للتابلت والكمبيوتر (md: و lg:)
+                    // تم تقليل الترحيل للموبايل (pt-3) مع إضافة التجاوب الاستجابي للتابلت والكمبيوتر (md: و lg:)
                     return (
-                        <div className={`h-screen flex flex-col watermark-container ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
-                            <div className={`shadow-sm px-2 pt-9 md:pt-4 lg:pt-3 pb-2 z-10 border-b-2 flex justify-between items-center gap-1 w-full shrink-0 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'}`}>
+                        <div className={`h-[100dvh] flex flex-col watermark-container ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+                            <div className={`shadow-sm px-2 pt-3 md:pt-4 lg:pt-3 pb-2 z-10 border-b-2 flex justify-between items-center gap-1 w-full shrink-0 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'}`}>
                                 <div className="flex items-center gap-1 min-w-0 shrink">
                                     <i className="fas fa-graduation-cap text-lg sm:text-2xl md:text-3xl lg:text-4xl text-gold shrink-0"></i>
                                     <div className="flex flex-col items-center text-center min-w-0 shrink">
@@ -930,12 +930,12 @@
                         const newAns = [...userAnswers]; newAns[currentQIndex] = { isCorrect: true, concept: question.concept, paragraph: question.paragraph, type: 'essay' }; setUserAnswers(newAns);
                     };
 
-                    // تم تقليل الترحيل للموبايل (pt-6) مع إضافة التجاوب الاستجابي للتابلت والكمبيوتر (md: و lg:)
+                    // تم تقليل الترحيل للموبايل (pt-3) مع إضافة التجاوب الاستجابي للتابلت والكمبيوتر (md: و lg:)
                     return (
-                        <div className={`h-screen flex flex-col watermark-container relative ${isDarkMode?'bg-gray-900':''}`} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+                        <div className={`h-[100dvh] flex flex-col watermark-container relative ${isDarkMode?'bg-gray-900':''}`} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
                             <DrawingCanvas isEnabled={isDrawingMode} />
                             
-                            <div className={`shadow-md px-2 sm:px-4 pt-9 md:pt-4 lg:pt-3 pb-2 flex justify-between items-center gap-1 z-50 sticky top-0 shrink-0 w-full border-b-4 border-primary ${isDarkMode?'bg-gray-800':'bg-white'}`}>
+                            <div className={`shadow-md px-2 sm:px-4 pt-3 md:pt-4 lg:pt-3 pb-2 flex justify-between items-center gap-1 z-50 sticky top-0 shrink-0 w-full border-b-4 border-primary ${isDarkMode?'bg-gray-800':'bg-white'}`}>
                                 <div className="flex items-center gap-1 min-w-0 shrink">
                                     <i className={`fas fa-graduation-cap text-lg sm:text-2xl md:text-3xl lg:text-4xl shrink-0 ${isDarkMode?'text-gray-100':'text-gold'}`}></i>
                                     <div className="flex flex-col items-center text-center min-w-0 shrink">
@@ -1015,7 +1015,7 @@
                     const firstName = studentName ? studentName.split(' ')[0] : 'يا بطل';
 
                     return (
-                        <div className="h-screen w-full flex items-center justify-center p-6 bg-gray-50 overflow-y-auto">
+                        <div className="h-[100dvh] w-full flex items-center justify-center p-6 bg-gray-50 overflow-y-auto">
                             <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full p-8 md:p-10 text-center border-t-8 border-primary my-auto animate-fade-in flex flex-col items-center">
                                 <i className={`fas ${perc===100?'fa-trophy text-gold':perc>=75?'fa-medal text-blue-500':'fa-book-open text-secondary'} text-7xl md:text-8xl mb-4 block`}></i>
                                 <div className="text-5xl md:text-6xl font-black text-primary mb-6 flex justify-center items-center gap-1" dir="ltr"><span>{toEasternArabic(perc)}</span><span>%</span></div>
@@ -1062,10 +1062,10 @@
                 }
 
                 if (screen === 'admin') {
-                    // تم تقليل الترحيل للموبايل (pt-6) مع إضافة التجاوب الاستجابي للتابلت والكمبيوتر (md: و lg:)
+                    // تم تقليل الترحيل للموبايل (pt-3) مع إضافة التجاوب الاستجابي للتابلت والكمبيوتر (md: و lg:)
                     return (
-                        <div className="h-screen w-full flex flex-col bg-gray-50 watermark-container">
-                            <div className="bg-primary text-white px-4 pt-9 md:pt-4 lg:pt-3 pb-3 flex justify-between items-center z-10 border-b-4 border-gold flex-wrap gap-y-3 shadow-md shrink-0">
+                        <div className="h-[100dvh] w-full flex flex-col bg-gray-50 watermark-container">
+                            <div className="bg-primary text-white px-4 pt-3 md:pt-4 lg:pt-3 pb-3 flex justify-between items-center z-10 border-b-4 border-gold flex-wrap gap-y-3 shadow-md shrink-0">
                                 <div className="flex items-center gap-3 shrink-0 justify-start">
                                     <i className="fas fa-graduation-cap text-2xl sm:text-3xl md:text-4xl text-gold shrink-0"></i>
                                     <div className="flex flex-col items-start text-right">
