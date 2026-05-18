@@ -103,13 +103,15 @@
         };
 
         const buildCourseData = (flatQuestions) => {
-            const course = []; let unitCounter = 1; let lessonCounter = 1;
+            const course = [];
+            const completedLessons = JSON.parse(localStorage.getItem('completedLessons') || '[]');
             flatQuestions.forEach(row => {
                 const unitTitle = row.unit || "وحدة عامة"; const lessonTitle = row.section || "درس عام";
                 let unit = course.find(u => u.title === unitTitle);
-                if (!unit) { unit = { id: `unit_${unitCounter++}`, title: unitTitle, lessons: [] }; course.push(unit); }
+                if (!unit) { unit = { id: `unit_${simpleHash(unitTitle)}`, title: unitTitle, lessons: [] }; course.push(unit); }
+                const lessonId = `lesson_${simpleHash(unitTitle + lessonTitle)}`;
                 let lesson = unit.lessons.find(l => l.title === lessonTitle);
-                if (!lesson) { lesson = { id: `lesson_${lessonCounter++}`, title: lessonTitle, questions: [], completed: false }; unit.lessons.push(lesson); }
+                if (!lesson) { lesson = { id: lessonId, title: lessonTitle, questions: [], completed: completedLessons.includes(lessonId) }; unit.lessons.push(lesson); }
                 const options = [row.opt1, row.opt2, row.opt3, row.opt4].filter(o => o && o.toString().trim() !== "");
                 
                 // تنظيف الكلمة من المسافات الزائدة والحروف الكبيرة، أو اكتشاف السؤال المقالي تلقائياً إذا كانت الخلية فارغة
@@ -393,6 +395,13 @@
                 return { total, completed, remaining: total - completed, progress: total ? Math.round((completed/total)*100) : 0 };
             }, [data]);
 
+            // حفظ الإحصائيات في الذاكرة لتظهر في شاشة الترحيب
+            useEffect(() => {
+                if (stats.total > 0) {
+                    localStorage.setItem('userStats', JSON.stringify(stats));
+                }
+            }, [stats]);
+
             const handleResume = async () => {
                 setIsLoading(true);
                 try {
@@ -644,14 +653,30 @@
 
             const renderScreen = () => {
                 if (screen === 'returning_welcome') {
+                    const savedStats = JSON.parse(localStorage.getItem('userStats') || 'null');
                     return (
                         <div className="h-[100dvh] w-full flex items-center justify-center p-4 bg-gray-50">
                             <div className="bg-white p-8 rounded-3xl shadow-2xl text-center max-w-md w-full border-t-8 border-secondary animate-fade-in relative overflow-hidden">
                                 <i className="fas fa-hand-sparkles text-6xl text-secondary mb-6 block relative z-10"></i>
                                 <h2 className="text-3xl font-black text-primary mb-4 relative z-10">مرحباً يا بطل {studentName.split(' ')[0]}!</h2>
-                                <p className="text-lg text-gray-600 font-semibold mb-2 relative z-10">هل مستعد لنكمل مغامرتنا؟</p>
-                                <p className="text-lg text-pink-600 font-black mb-8 relative z-10">أنت قد المسؤولية.. نبدأ يا بطل!</p>
-                                <button onClick={handleResume} disabled={isLoading} className="bg-secondary text-white font-black text-xl py-4 px-10 rounded-full w-full shadow-lg mb-4 hover:bg-green-600 transition-colors relative z-10">
+                                
+                                {savedStats && savedStats.completed > 0 ? (
+                                    <div className="mb-6 relative z-10">
+                                        <p className="text-lg text-gray-700 font-bold mb-2">
+                                            لقد أنجزت <span className="text-secondary font-black text-xl mx-1">{toEasternArabic(savedStats.completed)}</span> من الدروس بنجاح 🏆
+                                        </p>
+                                        <p className="text-lg text-pink-600 font-black bg-pink-50 py-2 px-4 rounded-xl border border-pink-100 inline-block shadow-sm">
+                                            {savedStats.remaining > 0 ? `هانت يا بطل.. باقي ${toEasternArabic(savedStats.remaining)} فقط! 💪` : 'لقد أنهيت جميع الدروس! 🎉'}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <React.Fragment>
+                                        <p className="text-lg text-gray-600 font-semibold mb-2 relative z-10">هل مستعد لنكمل مغامرتنا؟</p>
+                                        <p className="text-lg text-pink-600 font-black mb-8 relative z-10">أنت قد المسؤولية.. نبدأ يا بطل!</p>
+                                    </React.Fragment>
+                                )}
+                                
+                                <button onClick={handleResume} disabled={isLoading} className="bg-secondary text-white font-black text-xl py-4 px-10 rounded-full w-full shadow-lg mb-4 hover:bg-green-600 transition-colors relative z-10 mt-2">
                                     {isLoading ? <i className="fas fa-spinner fa-spin"></i> : 'نعم 🚀'}
                                 </button>
                                 <button onClick={handleLogout} className="text-gray-500 font-bold text-sm underline hover:text-red-500 mt-2 relative z-10">
@@ -850,8 +875,11 @@
                                             ليلي <i className={`fas ${isDarkMode?'fa-sun':'fa-moon'}`}></i>
                                         </button>
                                         <button onClick={() => showConfirm('هل أنت متأكد من مسح جميع إجاباتك والبدء من جديد؟', () => {
+                                            localStorage.removeItem('completedLessons');
+                                            localStorage.removeItem('userStats');
+                                            localStorage.removeItem('savedSession');
                                             const resetData = data.map(unit => ({ ...unit, lessons: unit.lessons.map(l => ({ ...l, completed: false })) }));
-                                            setData(resetData); setActiveFilter('all'); localStorage.removeItem('savedSession');
+                                            setData(resetData); setActiveFilter('all'); 
                                         })} className="bg-[#fff1f2] text-[#ef4444] border border-[#fecaca] px-2 py-1 rounded-md text-[9px] md:text-xs lg:text-sm font-black flex items-center gap-1 shadow-sm hover:bg-red-50 transition-colors shrink-0">
                                             تصفير <i className="fas fa-sync-alt"></i>
                                         </button>
@@ -1063,7 +1091,15 @@
                                     )}
                                 </div>
                                 <div className="w-full flex flex-col gap-3">
-                                    <button onClick={()=>{setData(data.map(u=>({...u,lessons:u.lessons.map(l=>l.id===activeLesson.id?{...l,completed:true}:l)}))); setScreen('index');}} className="bg-primary text-white font-black text-xl md:text-2xl py-4 px-10 rounded-full w-full hover:bg-gray-900 transition-colors shadow-lg active:scale-95">العودة للفهرس</button>
+                                    <button onClick={()=>{
+                                        const newCompleted = JSON.parse(localStorage.getItem('completedLessons') || '[]');
+                                        if (!newCompleted.includes(activeLesson.id)) {
+                                            newCompleted.push(activeLesson.id);
+                                            localStorage.setItem('completedLessons', JSON.stringify(newCompleted));
+                                        }
+                                        setData(data.map(u=>({...u,lessons:u.lessons.map(l=>l.id===activeLesson.id?{...l,completed:true}:l)}))); 
+                                        setScreen('index');
+                                    }} className="bg-primary text-white font-black text-xl md:text-2xl py-4 px-10 rounded-full w-full hover:bg-gray-900 transition-colors shadow-lg active:scale-95">العودة للفهرس</button>
                                     
                                     {perc < 100 && (
                                         <button onClick={()=>{
