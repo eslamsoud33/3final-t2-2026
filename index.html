@@ -56,11 +56,13 @@
     <script type="text/babel">
         const { useState, useEffect, useRef, useMemo } = React;
 
-        const API_URL = "https://script.google.com/macros/s/AKfycbyYqSkUjNfYL9raNrlN2lZqBhX_g6u1BOPzeYul2wune7UcbibwxMSpzO_XpLPDDrZAcQ/exec"; 
+        // رابط السكريبت الجديد والمحدث الخاص بك 🏁
+        const API_URL = "https://script.google.com/macros/s/AKfycbzlpVn7ysm-veVtEbE9EjhQEgKxK6NrhShTB2OPj3jMatTySu0LeiEx2UQ5PwuJrZ6tKg/exec"; 
         const SECRET_API_KEY = "Kanz_Secret_2026_Secure";
 
         // دالة تشفير (تحويل لنظام سداسي عشر) مضمونة 100% على جميع الأجهزة والمتصفحات
         const simpleHash = (str) => {
+            if (!str) return '';
             let hex = '';
             for(let i = 0; i < str.length; i++) {
                 hex += str.charCodeAt(i).toString(16);
@@ -102,6 +104,27 @@
             return crc32(bin).toString(16);
         };
 
+        // دالة ذكية لتحويل رابط جوجل درايف العادي إلى رابط تشغيل مباشر
+        const getDriveDirectLink = (url) => {
+            if (!url) return '';
+            const driveRegex = /\/file\/d\/([a-zA-Z0-9_-]+)/;
+            const idRegex = /id=([a-zA-Z0-9_-]+)/;
+            let fileId = null;
+            if (url.match(driveRegex)) fileId = url.match(driveRegex)[1];
+            else if (url.match(idRegex)) fileId = url.match(idRegex)[1];
+            if (fileId) return `https://drive.google.com/uc?export=download&id=${fileId}`;
+            return url;
+        };
+
+        // دالة ذكية لتحويل رابط يوتيوب العادي إلى رابط مشاهدة داخل المنصة
+        const getYoutubeEmbedLink = (url) => {
+            if (!url) return '';
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+            const match = url.match(regExp);
+            if (match && match[2].length === 11) return `https://www.youtube.com/embed/${match[2]}`;
+            return url;
+        };
+
         const buildCourseData = (flatQuestions) => {
             const course = [];
             const completedLessons = JSON.parse(localStorage.getItem('completedLessons') || '[]');
@@ -111,10 +134,22 @@
                 if (!unit) { unit = { id: `unit_${simpleHash(unitTitle)}`, title: unitTitle, lessons: [] }; course.push(unit); }
                 const lessonId = `lesson_${simpleHash(unitTitle + lessonTitle)}`;
                 let lesson = unit.lessons.find(l => l.title === lessonTitle);
-                if (!lesson) { lesson = { id: lessonId, title: lessonTitle, questions: [], completed: completedLessons.includes(lessonId) }; unit.lessons.push(lesson); }
+                
+                // إضافة المتغير audio و video للدرس لاحتواء الروابط إن وجدت
+                if (!lesson) { lesson = { id: lessonId, title: lessonTitle, questions: [], completed: completedLessons.includes(lessonId), audio: null, video: null }; unit.lessons.push(lesson); }
+                
+                // إذا كان هذا الصف يحتوي على رابط صوتي، نقوم بربطه بالدرس
+                if (!lesson.audio && row.audio && row.audio.toString().trim() !== "") {
+                    lesson.audio = row.audio.toString().trim();
+                }
+                // إذا كان هذا الصف يحتوي على رابط فيديو، نقوم بربطه بالدرس
+                if (!lesson.video && row.video && row.video.toString().trim() !== "") {
+                    lesson.video = row.video.toString().trim();
+                }
+
                 const options = [row.opt1, row.opt2, row.opt3, row.opt4].filter(o => o && o.toString().trim() !== "");
                 
-                // تنظيف الكلمة من المسافات الزائدة والحروف الكبيرة، أو اكتشاف السؤال المقالي تلقائياً إذا كانت الخلية فارغة
+                // تنظيف الكلمة من المسافات الزائدة والحروف الكبيرة، أو اكتب السؤال المقالي تلقائياً إذا كانت الخلية فارغة
                 let determinedType = (row.type || "").toString().trim().toLowerCase();
                 if (!determinedType) {
                     determinedType = options.length > 0 ? "mcq" : "essay";
@@ -302,6 +337,18 @@
             const [expandedUnits, setExpandedUnits] = useState([]);
             const [studentsList, setStudentsList] = useState({});
             
+            // متغير للتحكم في نافذة الشرح الذكية
+            const [lessonModalOptions, setLessonModalOptions] = useState(null);
+
+            // إضافة متغيرات حالة الإشعار للطلاب 📢
+            const [announcement, setAnnouncement] = useState('');
+            const [announcementInput, setAnnouncementInput] = useState('');
+
+            const [mistakesBank, setMistakesBank] = useState(() => {
+                const saved = localStorage.getItem('mistakesBank');
+                return saved ? JSON.parse(saved) : [];
+            });
+            
             const touchStartX = useRef(null);
             const touchEndX = useRef(null);
 
@@ -330,7 +377,7 @@
             }, [screen]);
 
             useEffect(() => {
-                if (screen === 'quiz' && activeLesson) {
+                if (screen === 'quiz' && activeLesson && activeLesson.id !== 'mistakes_bank') {
                     const sessionData = { lessonId: activeLesson.id, unitId: data.find(u => u.lessons.some(l => l.id === activeLesson.id))?.id, answers: userAnswers, currentIndex: currentQIndex };
                     localStorage.setItem('savedSession', JSON.stringify(sessionData));
                     const handleBeforeUnload = (e) => { e.returnValue = 'مغادرة الاختبار؟'; };
@@ -366,6 +413,7 @@
                                 }
                             }
                             if(result.fee) setPlatformFee(result.fee);
+                            if(result.announcement !== undefined) setAnnouncement(result.announcement); // تحميل الإشعار الفعلي للطلاب
                         }
                     } catch(e) {}
                 };
@@ -385,6 +433,11 @@
                     }
                 }
             }, []);
+
+            // مزامنة حقل إدخال الإشعار في لوحة الإدارة مع القيمة المخزنة
+            useEffect(() => {
+                setAnnouncementInput(announcement);
+            }, [announcement]);
 
             const toggleUnit = (unitId) => setExpandedUnits(prev => prev.includes(unitId) ? prev.filter(id => id !== unitId) : [...prev, unitId]);
             const toggleFullscreen = () => { if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(e=>console.log(e)); setIsFullscreen(true); } else { document.exitFullscreen(); setIsFullscreen(false); } };
@@ -421,6 +474,33 @@
                         } else setScreen('index');
                     } else { setLoginError("فشل تحميل الأسئلة من السيرفر."); setScreen('home'); }
                 } catch(e) { setLoginError("حدث خطأ أثناء جلب الأسئلة."); setScreen('home'); }
+                setIsLoading(false);
+            };
+
+            // دالة التحديث المباشر للمنصة (تحدث الأسئلة، الطلاب، الإعلانات، والأسعار دفعة واحدة)
+            const handleRefresh = async () => {
+                setIsLoading(true);
+                try {
+                    const qRes = await fetch(`${API_URL}?action=getQuestions&apiKey=${SECRET_API_KEY}`);
+                    const qData = await qRes.json();
+                    
+                    const sRes = await fetch(`${API_URL}?action=getAllStudents&apiKey=${SECRET_API_KEY}`);
+                    const sData = await sRes.json();
+                    
+                    if (qData.status === 'success') {
+                        setData(buildCourseData(qData.data));
+                        if (sData.status === 'success') {
+                            if (sData.announcement !== undefined) setAnnouncement(sData.announcement);
+                            if (sData.fee) setPlatformFee(sData.fee);
+                            if (sData.data) setStudentsList(sData.data);
+                        }
+                        showAlert('تم تحديث المحتوى والإشعارات بنجاح! 🚀');
+                    } else {
+                        showAlert("فشل التحديث من السيرفر.");
+                    }
+                } catch(e) {
+                    showAlert("حدث خطأ أثناء جلب التحديثات.");
+                }
                 setIsLoading(false);
             };
 
@@ -589,11 +669,27 @@
             };
 
             const handleUpdateFee = async () => {
-                if (!newFeeInput) return;
+                const finalFee = newFeeInput ? newFeeInput : platformFee;
+                setIsLoading(true);
                 try {
-                    await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'updateSettings', fee: newFeeInput, apiKey: SECRET_API_KEY }) });
-                    showAlert('تم تحديث قيمة الاشتراك'); setPlatformFee(newFeeInput); setNewFeeInput('');
-                } catch(e) { showAlert('خطأ في الاتصال'); }
+                    await fetch(API_URL, { 
+                        method: 'POST', 
+                        mode: 'no-cors', 
+                        body: JSON.stringify({ 
+                            action: 'updateSettings', 
+                            fee: finalFee, 
+                            announcement: announcementInput, // إرسال وحفظ الإشعار الجديد للطلاب
+                            apiKey: SECRET_API_KEY 
+                        }) 
+                    });
+                    showAlert('تم حفظ الإعدادات وتحديث الإشعار للطلاب بنجاح! 📢');
+                    setPlatformFee(finalFee);
+                    setAnnouncement(announcementInput);
+                    setNewFeeInput('');
+                } catch(e) { 
+                    showAlert('خطأ في الاتصال بالإنترنت'); 
+                }
+                setIsLoading(false);
             };
 
             const saveResultToDB = async (scoreObj) => {
@@ -638,9 +734,24 @@
                     const totalQs = activeLesson.questions.length;
                     const correct = userAnswers.filter(a => a.isCorrect).length;
                     const perc = Math.round((correct/totalQs)*100);
-                    saveResultToDB({ quizName: activeLesson.title, score: `${perc}%` });
+                    if (activeLesson.id !== 'mistakes_bank') {
+                        saveResultToDB({ quizName: activeLesson.title, score: `${perc}%` });
+                    }
                 }
                 setScreen('result');
+            };
+
+            // دالة مساعدة للدخول المباشر للتدريبات (سواء من الفهرس أو من النافذة المنبثقة)
+            const startQuizForLesson = (lesson) => {
+                const session = localStorage.getItem('savedSession'); let restored = false;
+                if (session) {
+                    const parsed = JSON.parse(session);
+                    if (parsed.lessonId === lesson.id) {
+                        setActiveLesson(lesson); setUserAnswers(parsed.answers || []); setCurrentQIndex(parsed.currentIndex || 0); setScreen('quiz'); restored = true;
+                    }
+                }
+                if (!restored) { setActiveLesson(lesson); setCurrentQIndex(0); setUserAnswers([]); setScreen('quiz'); }
+                setLessonModalOptions(null); // إغلاق النافذة المنبثقة إن كانت مفتوحة
             };
 
             let isAnswered = false; let currentAnswer = null; let question = null; let totalQs = 0;
@@ -874,10 +985,30 @@
                                         <button onClick={()=>setIsDarkMode(!isDarkMode)} className={`px-2 py-1 rounded-md text-[9px] md:text-xs lg:text-sm font-black flex items-center gap-1 shadow-sm transition-colors shrink-0 border ${isDarkMode ? 'bg-gray-700 text-white border-gray-600 hover:bg-gray-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}>
                                             ليلي <i className={`fas ${isDarkMode?'fa-sun':'fa-moon'}`}></i>
                                         </button>
+                                        
+                                        <button onClick={handleRefresh} disabled={isLoading} className={`px-2 py-1 rounded-md text-[9px] md:text-xs lg:text-sm font-black flex items-center gap-1 shadow-sm transition-colors shrink-0 border ${isDarkMode ? 'bg-blue-900 text-blue-100 border-blue-800 hover:bg-blue-800' : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'}`}>
+                                            تحديث <i className={`fas fa-sync-alt ${isLoading ? 'fa-spin' : ''}`}></i>
+                                        </button>
+
                                         <button onClick={() => showConfirm('هل أنت متأكد من مسح جميع إجاباتك والبدء من جديد؟', () => {
+                                            // 1. تجميع أسماء الدروس التي تم إنجازها قبل مسحها
+                                            const completedLessonNames = [];
+                                            data.forEach(u => u.lessons.forEach(l => { if(l.completed) completedLessonNames.push(l.title); }));
+                                            
+                                            // 2. إرسال إشعار للإدارة إذا كان هناك دروس تم تصفيرها فعلاً
+                                            if (completedLessonNames.length > 0) {
+                                                saveResultToDB({ 
+                                                    quizName: `تصفير 🗑️: ${completedLessonNames.join(' ، ')}`, 
+                                                    score: 'تصفير 🔄' 
+                                                });
+                                            }
+
+                                            // 3. المسح والتصفير كما هو
                                             localStorage.removeItem('completedLessons');
                                             localStorage.removeItem('userStats');
                                             localStorage.removeItem('savedSession');
+                                            localStorage.removeItem('mistakesBank');
+                                            setMistakesBank([]);
                                             const resetData = data.map(unit => ({ ...unit, lessons: unit.lessons.map(l => ({ ...l, completed: false })) }));
                                             setData(resetData); setActiveFilter('all'); 
                                         })} className="bg-[#fff1f2] text-[#ef4444] border border-[#fecaca] px-2 py-1 rounded-md text-[9px] md:text-xs lg:text-sm font-black flex items-center gap-1 shadow-sm hover:bg-red-50 transition-colors shrink-0">
@@ -891,32 +1022,54 @@
                             </div>
 
                             <div className="px-3 pt-3 pb-2 z-10 shrink-0">
-                                <div className="flex justify-center items-stretch gap-2 w-full max-w-4xl mx-auto" dir="rtl">
-                                    <div className="flex-1 lg:flex-none lg:w-24 bg-primary text-white rounded-xl py-2 px-1 flex flex-col items-center justify-center shadow-md">
+                                <div className="flex flex-wrap justify-center items-stretch gap-2 w-full max-w-4xl mx-auto" dir="rtl">
+                                    <div className="flex-1 lg:flex-none lg:w-24 bg-primary text-white rounded-xl py-2 px-1 flex flex-col items-center justify-center shadow-md min-w-[65px]">
                                         <div className="text-[10px] sm:text-xs font-bold text-gray-300 mb-0.5">التقدم</div>
                                         <div className="text-sm sm:text-base font-black flex items-center gap-0.5 text-secondary" dir="ltr">
                                             <span>%</span><span>{toEasternArabic(stats.progress)}</span>
                                         </div>
                                     </div>
-                                    <button onClick={()=>setActiveFilter('all')} className={`flex-1 lg:flex-none lg:w-24 rounded-xl py-2 px-1 flex flex-col items-center justify-center shadow-md transition-all ${activeFilter==='all'?'bg-secondary text-white ring-2 ring-offset-1 ring-secondary':'bg-secondary text-white opacity-90'}`}>
+                                    <button onClick={()=>setActiveFilter('all')} className={`flex-1 lg:flex-none lg:w-24 rounded-xl py-2 px-1 flex flex-col items-center justify-center shadow-md transition-all min-w-[65px] ${activeFilter==='all'?'bg-secondary text-white ring-2 ring-offset-1 ring-secondary':'bg-secondary text-white opacity-90'}`}>
                                         <div className="text-[10px] sm:text-xs font-bold text-green-100 mb-0.5">الدروس</div>
                                         <div className="text-sm sm:text-base font-black">{toEasternArabic(stats.total)}</div>
                                     </button>
-                                    <button onClick={()=>setActiveFilter('completed')} className={`flex-1 lg:flex-none lg:w-24 rounded-xl py-2 px-1 flex flex-col items-center justify-center border shadow-sm transition-all ${activeFilter==='completed'?'bg-green-50 border-green-500 ring-1 ring-green-500':'bg-white border-gray-200 hover:border-green-400'}`}>
+                                    <button onClick={()=>setActiveFilter('completed')} className={`flex-1 lg:flex-none lg:w-24 rounded-xl py-2 px-1 flex flex-col items-center justify-center border shadow-sm transition-all min-w-[65px] ${activeFilter==='completed'?'bg-green-50 border-green-500 ring-1 ring-green-500':'bg-white border-gray-200 hover:border-green-400'}`}>
                                         <div className="text-[10px] sm:text-xs font-bold text-green-500 mb-0.5">المنجز</div>
                                         <div className="text-sm sm:text-base font-black text-green-500">{toEasternArabic(stats.completed)}</div>
                                     </button>
-                                    <button onClick={()=>setActiveFilter('remaining')} className={`flex-1 lg:flex-none lg:w-24 rounded-xl py-2 px-1 flex flex-col items-center justify-center shadow-md transition-all ${activeFilter==='remaining'?'bg-red-600 text-white ring-2 ring-offset-1 ring-red-600':'bg-[#ef4444] text-white hover:bg-red-600'}`}>
+                                    <button onClick={()=>setActiveFilter('remaining')} className={`flex-1 lg:flex-none lg:w-24 rounded-xl py-2 px-1 flex flex-col items-center justify-center shadow-md transition-all min-w-[65px] ${activeFilter==='remaining'?'bg-red-600 text-white ring-2 ring-offset-1 ring-red-600':'bg-[#ef4444] text-white hover:bg-red-600'}`}>
                                         <div className="text-[10px] sm:text-xs font-bold text-white mb-0.5">المتبقي</div>
                                         <div className="text-sm sm:text-base font-black text-white">{toEasternArabic(stats.remaining)}</div>
                                     </button>
+                                    {mistakesBank.length > 0 && (
+                                        <button onClick={() => {
+                                            setActiveLesson({ id: 'mistakes_bank', title: 'بنك الأخطاء 🎯', questions: mistakesBank, completed: false });
+                                            setCurrentQIndex(0);
+                                            setUserAnswers([]);
+                                            setScreen('quiz');
+                                        }} className="flex-1 lg:flex-none lg:w-24 rounded-xl py-2 px-1 flex flex-col items-center justify-center shadow-md transition-all min-w-[65px] bg-rose-50 border-2 border-rose-500 ring-2 ring-offset-1 ring-rose-500 animate-pulse relative overflow-hidden">
+                                            <div className="text-[10px] sm:text-xs font-black text-rose-700 mb-0.5 relative z-10">بنك الأخطاء</div>
+                                            <div className="text-sm sm:text-base font-black text-rose-700 relative z-10">{toEasternArabic(mistakesBank.length)}</div>
+                                        </button>
+                                    )}
                                 </div>
                             </div>
 
                             <div className="flex-1 overflow-y-auto p-4 pt-0 z-10">
                                 <div className="max-w-4xl mx-auto space-y-4">
+                                    {/* 📢 شريط الإشعار الإخباري من الأستاذ للطلاب في أعلى قائمة الدروس */}
+                                    {announcement && announcement.trim() !== "" && (
+                                        <div className="bg-orange-50 border-r-4 border-gold p-4 rounded-2xl shadow-sm flex items-start gap-3 animate-fade-in mb-2">
+                                            <span className="text-gold text-xl shrink-0"><i className="fas fa-bullhorn animate-bounce"></i></span>
+                                            <div className="flex-1">
+                                                <h4 className="font-black text-gold text-xs sm:text-sm mb-0.5">تنبيه هام من الأستاذ 📢:</h4>
+                                                <p className="text-gray-800 text-sm sm:text-base font-bold leading-relaxed whitespace-pre-line">{announcement}</p>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {stats.total === 0 ? (
-                                        <div className={`rounded-3xl shadow-md border-2 p-8 text-center animate-fade-in flex flex-col items-center justify-center mt-4 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'}`}>
+                                        <div className={`rounded-3xl shadow-md border-2 p-8 text-center animate-fade-in flex flex-col items-center justify-center mt-4 ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-white'}`}>
                                             <i className="fas fa-book-reader text-6xl text-secondary mb-4 opacity-80"></i>
                                             <h2 className={`text-2xl font-black mb-2 ${isDarkMode ? 'text-gray-100' : 'text-primary'}`}>مرحبا بك في منصتنا</h2>
                                             <p className={`text-lg font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>سيتم اضافة الدروس قريبا</p>
@@ -934,14 +1087,12 @@
                                                         <div className={`divide-y ${isDarkMode ? 'divide-gray-600' : ''}`}>
                                                             {unit.lessons.filter(l => activeFilter === 'all' || (activeFilter === 'completed' ? l.completed : !l.completed)).map(lesson => (
                                                                 <div key={lesson.id} onClick={() => { 
-                                                                    const session = localStorage.getItem('savedSession'); let restored = false;
-                                                                    if (session) {
-                                                                        const parsed = JSON.parse(session);
-                                                                        if (parsed.lessonId === lesson.id) {
-                                                                            setActiveLesson(lesson); setUserAnswers(parsed.answers || []); setCurrentQIndex(parsed.currentIndex || 0); setScreen('quiz'); restored = true;
-                                                                        }
+                                                                    // تطبيق الدمج الذكي: لو فيه صوت أو فيديو، أظهر النافذة.. لو مفيش أدخله التدريبات مباشرة
+                                                                    if (lesson.audio || lesson.video) {
+                                                                        setLessonModalOptions(lesson);
+                                                                    } else {
+                                                                        startQuizForLesson(lesson);
                                                                     }
-                                                                    if (!restored) { setActiveLesson(lesson); setCurrentQIndex(0); setUserAnswers([]); setScreen('quiz'); }
                                                                 }} className={`px-6 py-5 flex justify-between items-center cursor-pointer ${isDarkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-50'}`}>
                                                                     <div className={`font-bold text-lg ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>{formatLessonTitle(lesson.title)}</div>
                                                                     {lesson.completed ? <i className="fas fa-check-circle text-secondary text-2xl"></i> : <i className="fas fa-play-circle text-gray-300 text-2xl"></i>}
@@ -974,7 +1125,23 @@
 
                     const handleOptionClick = (option) => {
                         if (isAnswered) return;
-                        const newAns = [...userAnswers]; newAns[currentQIndex] = { isCorrect: option === question.correct, selected: option, concept: question.concept, paragraph: question.paragraph, type: 'mcq' }; setUserAnswers(newAns);
+                        const isCorrect = option === question.correct;
+                        const newAns = [...userAnswers]; newAns[currentQIndex] = { isCorrect, selected: option, concept: question.concept, paragraph: question.paragraph, type: 'mcq' }; setUserAnswers(newAns);
+                        
+                        // تحديث بنك الأخطاء الذكي
+                        setMistakesBank(prev => {
+                            let newBank = [...prev];
+                            const qHash = simpleHash(question.q);
+                            const existsIndex = newBank.findIndex(item => simpleHash(item.q) === qHash);
+                            
+                            if (!isCorrect && existsIndex === -1) {
+                                newBank.push(question); // حفظ السؤال إذا أخطأ فيه
+                            } else if (isCorrect && existsIndex !== -1) {
+                                newBank.splice(existsIndex, 1); // إزالته إذا أجاب عليه بشكل صحيح
+                            }
+                            localStorage.setItem('mistakesBank', JSON.stringify(newBank));
+                            return newBank;
+                        });
                     };
                     const handleEssayReveal = () => {
                         if (isAnswered) return;
@@ -1092,12 +1259,14 @@
                                 </div>
                                 <div className="w-full flex flex-col gap-3">
                                     <button onClick={()=>{
-                                        const newCompleted = JSON.parse(localStorage.getItem('completedLessons') || '[]');
-                                        if (!newCompleted.includes(activeLesson.id)) {
-                                            newCompleted.push(activeLesson.id);
-                                            localStorage.setItem('completedLessons', JSON.stringify(newCompleted));
+                                        if (activeLesson.id !== 'mistakes_bank') {
+                                            const newCompleted = JSON.parse(localStorage.getItem('completedLessons') || '[]');
+                                            if (!newCompleted.includes(activeLesson.id)) {
+                                                newCompleted.push(activeLesson.id);
+                                                localStorage.setItem('completedLessons', JSON.stringify(newCompleted));
+                                            }
+                                            setData(data.map(u=>({...u,lessons:u.lessons.map(l=>l.id===activeLesson.id?{...l,completed:true}:l)}))); 
                                         }
-                                        setData(data.map(u=>({...u,lessons:u.lessons.map(l=>l.id===activeLesson.id?{...l,completed:true}:l)}))); 
                                         setScreen('index');
                                     }} className="bg-primary text-white font-black text-xl md:text-2xl py-4 px-10 rounded-full w-full hover:bg-gray-900 transition-colors shadow-lg active:scale-95">العودة للفهرس</button>
                                     
@@ -1204,7 +1373,30 @@
                                     {adminActiveTab === 'settings' && (
                                         <div className="bg-white rounded-2xl shadow-md overflow-hidden max-w-lg">
                                             <div className="bg-gray-50 px-6 py-4 border-b border-gray-200"><h2 className="text-xl font-black text-primary">إعدادات المنصة</h2></div>
-                                            <div className="p-6"><div className="mb-4"><label className="block text-gray-700 font-bold mb-2">قيمة الاشتراك الحالية:</label><div className="bg-gray-100 px-4 py-3 rounded-xl font-black text-secondary text-lg border">{platformFee}</div></div><div className="mb-6"><label className="block text-gray-700 font-bold mb-2">تحديث السعر:</label><input type="text" placeholder="مثال: 60 جنيهاً" className="w-full border-2 focus:border-secondary outline-none rounded-xl px-4 py-3 text-lg font-bold" value={newFeeInput} onChange={e=>setNewFeeInput(e.target.value)} /></div><button onClick={handleUpdateFee} disabled={!newFeeInput} className={`w-full text-white font-bold py-3 rounded-xl shadow transition-colors ${newFeeInput ? 'bg-primary hover:bg-blue-800' : 'bg-gray-300'}`}>حفظ الإعدادات</button></div>
+                                            <div className="p-6">
+                                                <div className="mb-4">
+                                                    <label className="block text-gray-700 font-bold mb-2">قيمة الاشتراك الحالية:</label>
+                                                    <div className="bg-gray-100 px-4 py-3 rounded-xl font-black text-secondary text-lg border">{platformFee}</div>
+                                                </div>
+                                                <div className="mb-6">
+                                                    <label className="block text-gray-700 font-bold mb-2">تحديث السعر:</label>
+                                                    <input type="text" placeholder="مثال: 60 جنيهاً" className="w-full border-2 focus:border-secondary outline-none rounded-xl px-4 py-3 text-lg font-bold" value={newFeeInput} onChange={e=>setNewFeeInput(e.target.value)} />
+                                                </div>
+                                                
+                                                {/* 📢 مربع إدخال وإرسال الإشعارات والتنبيهات للطلاب */}
+                                                <div className="mb-6">
+                                                    <label className="block text-gray-700 font-bold mb-2">الإشعار الحالي للطلاب 📢:</label>
+                                                    <textarea 
+                                                        placeholder="اكتب التنبيه هنا ليظهر لجميع الطلاب فوراً في أعلى الفهرس..." 
+                                                        className="w-full border-2 focus:border-secondary outline-none rounded-xl px-4 py-3 text-base font-bold h-28 resize-none" 
+                                                        value={announcementInput} 
+                                                        onChange={e=>setAnnouncementInput(e.target.value)} 
+                                                    />
+                                                    <p className="text-xs text-gray-500 mt-1 font-bold">امسح نص الإشعار بالكامل واضغط حفظ الإعدادات لإخفاء الإشعار من واجهة الطلاب.</p>
+                                                </div>
+
+                                                <button onClick={handleUpdateFee} className="w-full text-white font-bold py-3 rounded-xl shadow transition-colors bg-primary hover:bg-blue-800">حفظ الإعدادات</button>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -1219,6 +1411,64 @@
                 <React.Fragment>
                     {renderScreen()}
                     
+                    {/* النافذة المنبثقة الذكية للصوتيات والفيديوهات والتدريبات */}
+                    {lessonModalOptions && (
+                        <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4" dir="rtl">
+                            <div className="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl text-center animate-fade-in flex flex-col relative max-h-[90dvh] overflow-y-auto custom-scrollbar">
+                                <div className="absolute top-0 right-0 w-full h-2 bg-secondary"></div>
+                                
+                                <h2 className="text-xl md:text-2xl font-black text-primary mb-6 mt-2">{formatLessonTitle(lessonModalOptions.title)}</h2>
+
+                                {lessonModalOptions.video && (
+                                    <div className="mb-4 w-full rounded-2xl overflow-hidden shadow-sm border border-gray-200 relative flex items-center justify-center" style={lessonModalOptions.video.startsWith('http') ? { paddingTop: '56.25%', backgroundColor: 'black' } : { minHeight: '120px', backgroundColor: '#f3f4f6' }}>
+                                        {lessonModalOptions.video.startsWith('http') ? (
+                                            <iframe 
+                                                className="absolute top-0 left-0 w-full h-full"
+                                                src={getYoutubeEmbedLink(lessonModalOptions.video)} 
+                                                title="YouTube video" 
+                                                frameBorder="0" 
+                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                                allowFullScreen>
+                                            </iframe>
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center p-4">
+                                                <i className="fas fa-video-slash text-4xl text-gray-400 mb-2"></i>
+                                                <span className="font-black text-rose-600 text-lg">{lessonModalOptions.video}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {lessonModalOptions.audio && (
+                                    <div className="bg-blue-50 border-2 border-blue-100 rounded-2xl p-4 mb-4">
+                                        <p className="text-sm font-bold text-blue-800 mb-3 flex items-center justify-center gap-2">
+                                            <i className="fas fa-headphones-alt text-xl"></i> استمع لشرح الدرس:
+                                        </p>
+                                        {lessonModalOptions.audio.startsWith('http') ? (
+                                            <audio controls className="w-full h-12 outline-none rounded-lg" controlsList="nodownload">
+                                                <source src={getDriveDirectLink(lessonModalOptions.audio)} type="audio/mpeg" />
+                                                متصفحك لا يدعم تشغيل الصوت.
+                                            </audio>
+                                        ) : (
+                                            <div className="bg-white border border-blue-200 rounded-xl py-3 px-4 text-center shadow-sm">
+                                                <span className="font-black text-rose-600 text-lg">{lessonModalOptions.audio}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                <div className="flex flex-col gap-3 mt-2 mt-auto">
+                                    <button onClick={() => startQuizForLesson(lessonModalOptions)} className="w-full bg-primary text-white font-black text-lg py-3 rounded-xl shadow-md hover:bg-gray-900 transition-colors flex justify-center items-center gap-2">
+                                        <i className="fas fa-pen-alt"></i> الدخول للتدريبات
+                                    </button>
+                                    <button onClick={() => setLessonModalOptions(null)} className="w-full bg-gray-100 text-gray-600 font-bold py-3 rounded-xl hover:bg-gray-200 transition-colors">
+                                        إغلاق وعودة
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {dialog.isOpen && (
                         <div className="fixed inset-0 bg-black/70 z-[999] flex items-center justify-center p-4" dir="rtl">
                             <div className="bg-white rounded-3xl p-6 md:p-8 max-w-sm w-full shadow-2xl text-center animate-fade-in">
