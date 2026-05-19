@@ -56,8 +56,7 @@
     <script type="text/babel">
         const { useState, useEffect, useRef, useMemo } = React;
 
-        // رابط السكريبت الجديد والمحدث الخاص بك 🏁
-        const API_URL = "https://script.google.com/macros/s/AKfycbzlpVn7ysm-veVtEbE9EjhQEgKxK6NrhShTB2OPj3jMatTySu0LeiEx2UQ5PwuJrZ6tKg/exec"; 
+        const API_URL = "https://script.google.com/macros/s/AKfycbwux5P_M5KT9GueWp1s0I7uzaHT8Qjy9xKTrqaVnEl7O3vgwkWekSb8LQKIwnH98Umuow/exec"; 
         const SECRET_API_KEY = "Kanz_Secret_2026_Secure";
 
         // دالة تشفير (تحويل لنظام سداسي عشر) مضمونة 100% على جميع الأجهزة والمتصفحات
@@ -344,6 +343,10 @@
             const [announcement, setAnnouncement] = useState('');
             const [announcementInput, setAnnouncementInput] = useState('');
 
+            // 🗺️ إضافة قسم الخرائط المستقل (يجلب بياناته من جوجل شيت الآن)
+            const [activeMapUrl, setActiveMapUrl] = useState(null);
+            const [mapsList, setMapsList] = useState([]);
+
             const [mistakesBank, setMistakesBank] = useState(() => {
                 const saved = localStorage.getItem('mistakesBank');
                 return saved ? JSON.parse(saved) : [];
@@ -463,6 +466,7 @@
                     if (qData.status === 'success') {
                         const builtData = buildCourseData(qData.data);
                         setData(builtData);
+                        if (qData.maps) setMapsList(qData.maps); else setMapsList([]); // 🗺️ تحديث الخرائط
                         const session = localStorage.getItem('savedSession');
                         if (session) {
                             const parsedSession = JSON.parse(session);
@@ -477,7 +481,7 @@
                 setIsLoading(false);
             };
 
-            // دالة التحديث المباشر للمنصة (تحدث الأسئلة، الطلاب، الإعلانات، والأسعار دفعة واحدة)
+            // دالة التحديث المباشر للمنصة (تحدث الأسئلة، الطلاب، الإعلانات، الأسعار، والخرائط دفعة واحدة)
             const handleRefresh = async () => {
                 setIsLoading(true);
                 try {
@@ -489,6 +493,7 @@
                     
                     if (qData.status === 'success') {
                         setData(buildCourseData(qData.data));
+                        if (qData.maps) setMapsList(qData.maps); else setMapsList([]); // 🗺️ تحديث الخرائط
                         if (sData.status === 'success') {
                             if (sData.announcement !== undefined) setAnnouncement(sData.announcement);
                             if (sData.fee) setPlatformFee(sData.fee);
@@ -527,6 +532,7 @@
                         const qRes = await fetch(`${API_URL}?action=getQuestions&apiKey=${SECRET_API_KEY}`); const qData = await qRes.json();
                         if (qData.status === 'success') {
                             setData(buildCourseData(qData.data));
+                            if (qData.maps) setMapsList(qData.maps); else setMapsList([]); // 🗺️ تحديث الخرائط
                             setScreen(targetScreen); 
                         } else setLoginError("فشل تحميل الأسئلة من السيرفر.");
                     } catch(e) { setLoginError("حدث خطأ أثناء جلب الأسئلة."); }
@@ -1054,6 +1060,15 @@
                                 </div>
                             </div>
 
+                            {/* 🗺️ زر الدخول لقسم الخرائط التفاعلية المعزول */}
+                            {mapsList && mapsList.length > 0 && (
+                                <div className="px-4 mt-2 mb-2 w-full max-w-4xl mx-auto z-10 shrink-0">
+                                    <button onClick={() => setScreen('maps')} className={`w-full font-black py-3.5 rounded-2xl shadow-sm transition-transform active:scale-95 flex justify-center items-center gap-3 border-2 ${isDarkMode ? 'bg-indigo-900 border-indigo-700 text-indigo-100 hover:bg-indigo-800' : 'bg-indigo-50 border-indigo-200 text-indigo-800 hover:bg-indigo-100'}`}>
+                                        <i className="fas fa-map-marked-alt text-2xl sm:text-3xl animate-bounce"></i> <span className="text-lg sm:text-xl">الخرائط التفاعلية الشاملة</span>
+                                    </button>
+                                </div>
+                            )}
+
                             <div className="flex-1 overflow-y-auto p-4 pt-0 z-10">
                                 <div className="max-w-4xl mx-auto space-y-4">
                                     {/* 📢 شريط الإشعار الإخباري من الأستاذ للطلاب في أعلى قائمة الدروس */}
@@ -1104,6 +1119,47 @@
                                         })
                                     )}
                                 </div>
+                            </div>
+                        </div>
+                    );
+                }
+
+                // 🗺️ الشاشة المعزولة المستقلة للخرائط التفاعلية
+                if (screen === 'maps') {
+                    return (
+                        <div className={`h-[100dvh] flex flex-col watermark-container ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+                            <div className={`shadow-sm px-4 pt-4 pb-3 z-10 border-b-2 flex justify-between items-center w-full shrink-0 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'}`}>
+                                <div className="flex items-center gap-3">
+                                    <i className="fas fa-map-marked-alt text-3xl sm:text-4xl text-indigo-500"></i>
+                                    <div className="font-black text-xl sm:text-2xl text-indigo-600">الخرائط التفاعلية</div>
+                                </div>
+                                <button onClick={() => { setScreen('index'); setActiveMapUrl(null); }} className="bg-primary text-white font-bold px-5 py-2.5 rounded-xl text-sm sm:text-base shadow-md active:scale-95 transition-transform flex items-center gap-2">
+                                    عودة <i className="fas fa-arrow-left"></i>
+                                </button>
+                            </div>
+
+                            <div className="flex-1 p-4 sm:p-6 z-10 flex flex-col">
+                                {activeMapUrl ? (
+                                    <div className="w-full h-full relative rounded-3xl overflow-hidden border-4 border-indigo-200 shadow-2xl bg-white flex flex-col animate-fade-in">
+                                        <div className="bg-indigo-100 px-4 py-2 flex justify-between items-center border-b border-indigo-200">
+                                            <span className="font-bold text-indigo-800"><i className="fas fa-info-circle ml-1"></i> تفاعل مع الخريطة</span>
+                                            <button onClick={() => setActiveMapUrl(null)} className="bg-red-500 text-white w-8 h-8 rounded-full flex items-center justify-center shadow font-black text-lg hover:bg-red-600 transition-colors">×</button>
+                                        </div>
+                                        {/* هنا يكمن السحر: الـ iframe يعزل كود الخريطة بالكامل عن المنصة */}
+                                        <iframe src={activeMapUrl} className="flex-1 w-full border-0 bg-white" title="Interactive Map"></iframe>
+                                    </div>
+                                ) : (
+                                    <div className="max-w-4xl mx-auto w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-4 animate-fade-in">
+                                        {mapsList && mapsList.map(map => (
+                                            <div key={map.id} onClick={() => setActiveMapUrl(map.url)} className={`p-8 rounded-3xl shadow-lg border-2 cursor-pointer transition-transform hover:-translate-y-2 flex flex-col items-center text-center relative overflow-hidden group ${isDarkMode ? 'bg-gray-800 border-gray-700 hover:border-indigo-500' : 'bg-white border-gray-100 hover:border-indigo-400'}`}>
+                                                <div className="absolute top-0 right-0 w-full h-2 bg-indigo-500 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-right"></div>
+                                                <i className="fas fa-map-location-dot text-6xl text-indigo-200 group-hover:text-indigo-500 transition-colors mb-4 block"></i>
+                                                <h3 className={`text-xl font-black mt-2 ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>{map.title}</h3>
+                                                <span className="mt-4 text-sm font-bold bg-indigo-50 text-indigo-600 py-1 px-4 rounded-full border border-indigo-100">فتح الخريطة</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     );
