@@ -25,8 +25,9 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   
-  // Skip audio proxy or range request files to let browser handle native streaming (Range 206)
-  if (url.pathname.includes('/api/proxy-audio') || event.request.destination === 'audio' || event.request.destination === 'video') {
+  // تجاهل أي روابط خارجية (مثل روابط الصوت من archive.org) 
+  // لكي يتعامل معها مشغل الموبايل الأصلي بشكل طبيعي ويدعم استكمال التحميل (Range Requests)
+  if (url.origin !== self.location.origin || url.pathname.includes('/api/proxy-audio') || event.request.destination === 'audio' || event.request.destination === 'video') {
     return;
   }
   
