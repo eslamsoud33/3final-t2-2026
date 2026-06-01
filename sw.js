@@ -2,7 +2,7 @@
 importScripts("https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js");
 
 // Minimal installable Service Worker for Kanz Educational Platform
-const CACHE_NAME = 'kanz-cache-v4'; // تم تغيير الرقم إلى 4 لحل مشاكل الصوت
+const CACHE_NAME = 'kanz-cache-v5'; // تم تغيير الرقم إلى 5 لضمان وصول التحديثات الأخيرة لجميع الطلاب
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
